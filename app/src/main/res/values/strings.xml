@@ -1,0 +1,116 @@
+<resources>
+    <string name="app_name">Eyeline</string>
+
+    <!-- Library Screen -->
+    <string name="library_subtitle">Vertical Teleprompter Studio</string>
+    <string name="library_new_script">New Script</string>
+    <string name="library_search_placeholder">Search scripts…</string>
+    <string name="library_empty_title">Your studio desk is clear</string>
+    <string name="library_empty_body">Draft a short-form hook or paste a script to start recording with natural eye contact.</string>
+    <string name="library_no_results_title">No matching scripts</string>
+    <string name="library_no_results_body">Try a different keyword or start a fresh script.</string>
+    <string name="library_untitled_script">Untitled Script</string>
+    <string name="library_empty_script_preview">Tap to start writing…</string>
+    <string name="library_record_action">Record</string>
+    <string name="library_delete_script_title">Delete script?</string>
+    <string name="library_delete_script_body">This removes the script from this device permanently.</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_duplicate">Duplicate</string>
+    <string name="action_settings">Options</string>
+    <string name="action_options">Options</string>
+    <string name="action_theme_toggle">Switch theme mode</string>
+
+    <!-- Editor Screen -->
+    <string name="editor_back">Back to scripts</string>
+    <string name="editor_title_placeholder">Script title</string>
+    <string name="editor_body_placeholder">Paste or type your script here…\n\nTip: Short punchy sentences read effortlessly right under the lens.</string>
+    <string name="editor_paste">Paste</string>
+    <string name="editor_clear">Clear</string>
+    <string name="editor_saved">Saved locally</string>
+    <string name="editor_saving">Saving…</string>
+    <string name="editor_record_cta">Open Teleprompter</string>
+    <string name="editor_empty_warning">Add a few lines before recording</string>
+    <string name="metrics_words_format">%1$d words</string>
+    <string name="metrics_read_time_format">~%1$s read</string>
+
+    <!-- Studio Permissions -->
+    <string name="permission_title">Camera &amp; Mic Access</string>
+    <string name="permission_body">Eyeline uses your front camera and microphone to record vertical takes right behind your scrolling script.</string>
+    <string name="permission_grant">Enable Camera &amp; Mic</string>
+    <string name="permission_settings">Open App Settings</string>
+    <string name="permission_back">Return to Script</string>
+
+    <!-- Studio Controls -->
+    <string name="studio_close">Close studio</string>
+    <string name="studio_mic_label">MIC</string>
+    <string name="studio_mic_ready">Mic live</string>
+    <string name="studio_grid_toggle">Toggle framing grid</string>
+    <string name="studio_rim_light_toggle">Toggle screen rim light</string>
+    <string name="studio_reset_scroll">Reset script to top</string>
+    <string name="studio_quick_controls">Teleprompter controls</string>
+    <string name="studio_record_start">Start recording</string>
+    <string name="studio_record_stop">Stop recording</string>
+    <string name="studio_countdown_cancel">Tap to cancel</string>
+    <string name="studio_scroll_paused">Scroll paused · Tap to resume</string>
+    <string name="studio_drag_hint">Tap to pause · Drag to scrub</string>
+    <string name="studio_volume_hint">Options</string>
+    <string name="studio_flip_camera">Switch camera</string>
+
+    <!-- Quick Adjust Drawer -->
+    <string name="adjust_title">Studio Controls</string>
+    <string name="adjust_font_size">Text Size</string>
+    <string name="adjust_scroll_speed">Scroll Speed</string>
+    <string name="adjust_backdrop_darkness">Backdrop Darkness</string>
+    <string name="adjust_rim_light">Screen Rim Light</string>
+    <string name="adjust_rim_light_desc">Illuminates screen edges for face fill light</string>
+    <string name="adjust_rim_intensity">Rim Glow Intensity</string>
+    <string name="adjust_rim_warm">Warm</string>
+    <string name="adjust_rim_neutral">Daylight</string>
+    <string name="adjust_rim_cool">Cool</string>
+    <string name="adjust_volume_shutter">Volume Down Shutter</string>
+    <string name="adjust_volume_shutter_desc">Use Volume Down button to start or stop recording</string>
+    <string name="adjust_countdown_sounds">Countdown Sounds</string>
+    <string name="adjust_countdown_sounds_desc">Play studio audio cues during the 3-2-1 countdown</string>
+    <string name="adjust_theme_mode">Appearance</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_system">System</string>
+
+    <!-- Review Screen -->
+    <string name="review_title">Review Take</string>
+    <string name="review_retake">Retake</string>
+    <string name="review_trim">Trim</string>
+    <string name="review_edited_badge">Edited</string>
+    <string name="review_edit_script">Edit Script</string>
+    <string name="review_save">Save Video</string>
+    <string name="review_saving">Saving…</string>
+    <string name="review_saved">Saved to Gallery</string>
+    <string name="review_saved_banner">Saved to Movies/Eyeline</string>
+    <string name="review_save_error">Could not save video. Please try again.</string>
+    <string name="review_play_pause">Toggle playback</string>
+    <string name="review_mute_toggle">Toggle sound</string>
+
+    <!-- Trim & Cut Editor -->
+    <string name="trim_title">Trim &amp; Cut</string>
+    <string name="trim_cancel">Cancel</string>
+    <string name="trim_split">Split</string>
+    <string name="trim_cut">Cut</string>
+    <string name="trim_restore">Restore</string>
+    <string name="trim_undo">Undo</string>
+    <string name="trim_reset">Reset</string>
+    <string name="trim_apply_cuts">Apply Cuts</string>
+    <string name="trim_done_no_cuts">Done</string>
+    <string name="trim_loading_waveform">Analyzing audio waveform…</string>
+    <string name="trim_no_audio_waveform">No audio waveform · Scrub timeline to cut</string>
+    <string name="trim_hint_controls">Drag handles to trim edges · Split to cut middle sections</string>
+    <string name="trim_keep_one_guard">Keep at least one clip</string>
+    <string name="trim_segment_kept">Clip %1$d · Kept</string>
+    <string name="trim_segment_cut">Clip %1$d · Cut</string>
+    <string name="trim_cuts_badge_one">1 cut</string>
+    <string name="trim_cuts_badge_many">%1$d cuts</string>
+    <string name="trim_rendering_title">Rendering cuts…</string>
+    <string name="trim_rendering_progress">Rendering cuts · %1$d%%</string>
+    <string name="trim_cancel_render">Cancel Render</string>
+    <string name="trim_render_error">Could not render cuts. Please try again.</string>
+</resources>

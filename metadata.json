@@ -1,0 +1,6 @@
+{
+  "name": "Eyeline",
+  "description": "Minimalist dark & light mode vertical teleprompter and front-camera video studio with local script library, eye-line scrolling guide, screen rim light, volume-down shutter, and instant take review.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
