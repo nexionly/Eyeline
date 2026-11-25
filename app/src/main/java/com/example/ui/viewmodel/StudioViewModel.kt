@@ -8,6 +8,7 @@ import com.example.capture.AudioWaveformExtractor
 import com.example.capture.CountdownSoundPlayer
 import com.example.capture.PreRollAudioMonitor
 import com.example.capture.TimelineEditState
+import com.example.capture.VideoAspectCropper
 import com.example.capture.VideoCutRenderer
 import com.example.capture.VideoExportMetadata
 import com.example.capture.VideoExportResult
@@ -18,6 +19,7 @@ import com.example.capture.VideoShareResult
 import com.example.capture.WaveformLoadState
 import com.example.data.local.ScriptEntity
 import com.example.data.preferences.PrompterSettings
+import com.example.data.preferences.RecordingAspectMode
 import com.example.data.preferences.RimLightTone
 import com.example.data.preferences.StudioPreferencesRepository
 import com.example.data.repository.ScriptsRepository
@@ -67,10 +69,17 @@ sealed interface StudioPhase {
         val isLeadInHold: Boolean = true,
     ) : StudioPhase
 
+    data class ProcessingCrop(
+        val rawVideoPath: String,
+        val recordedAtMillis: Long,
+        val progress: Float = 0f,
+    ) : StudioPhase
+
     data class Review(
         val originalVideoPath: String,
         val activeVideoPath: String = originalVideoPath,
         val recordedAtMillis: Long = System.currentTimeMillis(),
+        val aspectMode: RecordingAspectMode = RecordingAspectMode.VERTICAL_9_16,
         val appliedEditState: TimelineEditState? = null,
         val saveState: SaveState = SaveState.Idle,
         val shareState: ShareState = ShareState.Idle,
@@ -84,6 +93,7 @@ sealed interface StudioPhase {
         val previousActiveVideoPath: String,
         val previousAppliedEditState: TimelineEditState?,
         val recordedAtMillis: Long,
+        val aspectMode: RecordingAspectMode = RecordingAspectMode.VERTICAL_9_16,
         val editState: TimelineEditState,
         val waveformState: WaveformLoadState = WaveformLoadState.Loading,
         val renderState: TrimRenderState = TrimRenderState.Idle,
@@ -139,6 +149,7 @@ class StudioViewModel(
     private var leadInHoldJob: Job? = null
     private var waveformJob: Job? = null
     private var renderJob: Job? = null
+    private var cropJob: Job? = null
     private var hasAudioPermission: Boolean = false
     private val recordingBarHistory = ArrayDeque<Float>(AUDIO_BAR_COUNT)
     private val cachedWaveforms = mutableMapOf<String, WaveformLoadState>()
@@ -158,6 +169,7 @@ class StudioViewModel(
     fun startPreRollMicMonitor() {
         if (!hasAudioPermission) return
         if (_phase.value is StudioPhase.Recording ||
+            _phase.value is StudioPhase.ProcessingCrop ||
             _phase.value is StudioPhase.Review ||
             _phase.value is StudioPhase.Trimming
         ) return
@@ -180,7 +192,10 @@ class StudioViewModel(
             is StudioPhase.Preview -> beginCountdown()
             is StudioPhase.Countdown -> cancelCountdown()
             is StudioPhase.Recording -> requestStopRecording()
-            is StudioPhase.Review, is StudioPhase.Trimming -> Unit
+            is StudioPhase.ProcessingCrop,
+            is StudioPhase.Review,
+            is StudioPhase.Trimming,
+            -> Unit
         }
     }
 
@@ -324,7 +339,7 @@ class StudioViewModel(
         _audioBars.value = padded
     }
 
-    fun onRecordingFinalized(outputFile: File?, errorText: String?) {
+    fun onRecordingFinalized(outputFile: File?, errorText: String?, context: Context? = null) {
         isStopRequested = false
         timerJob?.cancel()
         timerJob = null
@@ -334,15 +349,87 @@ class StudioViewModel(
             _errorMessage.value = errorText ?: "Recording failed. Please try again."
             _phase.value = StudioPhase.Preview
             startPreRollMicMonitor()
+            return
+        }
+
+        val recordedAt = System.currentTimeMillis()
+        val currentSettings = settings.value
+        if (currentSettings.recordingAspectMode == RecordingAspectMode.WIDE_16_9 && context != null) {
+            val appContext = context.applicationContext
+            val croppedFile = File(appContext.cacheDir, "eyeline_wide_${recordedAt}.mp4")
+            val cropOffsetY = currentSettings.wideCropOffsetY
+
+            _phase.value = StudioPhase.ProcessingCrop(
+                rawVideoPath = outputFile.absolutePath,
+                recordedAtMillis = recordedAt,
+                progress = 0.04f,
+            )
+
+            cropJob?.cancel()
+            cropJob = viewModelScope.launch {
+                val result = VideoAspectCropper.cropToWide16x9(
+                    context = appContext,
+                    sourceFile = outputFile,
+                    outputFile = croppedFile,
+                    offsetY = cropOffsetY,
+                    onProgress = { progress ->
+                        _phase.update { state ->
+                            if (state is StudioPhase.ProcessingCrop &&
+                                state.rawVideoPath == outputFile.absolutePath
+                            ) {
+                                state.copy(progress = progress)
+                            } else {
+                                state
+                            }
+                        }
+                    },
+                )
+
+                // Always clean up the uncropped raw portrait cache file after processing
+                launch(Dispatchers.IO) { runCatching { outputFile.delete() } }
+
+                when (result) {
+                    is VideoRenderResult.Success -> {
+                        _phase.value = StudioPhase.Review(
+                            originalVideoPath = result.outputFile.absolutePath,
+                            activeVideoPath = result.outputFile.absolutePath,
+                            recordedAtMillis = recordedAt,
+                            aspectMode = RecordingAspectMode.WIDE_16_9,
+                            appliedEditState = null,
+                            saveState = SaveState.Idle,
+                        )
+                    }
+
+                    is VideoRenderResult.Failure -> {
+                        _errorMessage.value = result.message
+                        _phase.value = StudioPhase.Preview
+                        startPreRollMicMonitor()
+                    }
+                }
+            }
         } else {
             _phase.value = StudioPhase.Review(
                 originalVideoPath = outputFile.absolutePath,
                 activeVideoPath = outputFile.absolutePath,
-                recordedAtMillis = System.currentTimeMillis(),
+                recordedAtMillis = recordedAt,
+                aspectMode = RecordingAspectMode.VERTICAL_9_16,
                 appliedEditState = null,
                 saveState = SaveState.Idle,
             )
         }
+    }
+
+    fun cancelWideCrop() {
+        val processing = _phase.value as? StudioPhase.ProcessingCrop ?: return
+        cropJob?.cancel()
+        cropJob = null
+        val rawPath = processing.rawVideoPath
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { File(rawPath).delete() }
+        }
+        _scrollResetCounter.update { it + 1 }
+        _phase.value = StudioPhase.Preview
+        startPreRollMicMonitor()
     }
 
     fun openTrimEditor() {
@@ -356,6 +443,7 @@ class StudioViewModel(
             previousActiveVideoPath = review.activeVideoPath,
             previousAppliedEditState = review.appliedEditState,
             recordedAtMillis = review.recordedAtMillis,
+            aspectMode = review.aspectMode,
             editState = initialEdit,
             waveformState = cachedWaveform ?: WaveformLoadState.Loading,
             renderState = TrimRenderState.Idle,
@@ -453,6 +541,7 @@ class StudioViewModel(
             originalVideoPath = trimming.originalVideoPath,
             activeVideoPath = trimming.previousActiveVideoPath,
             recordedAtMillis = trimming.recordedAtMillis,
+            aspectMode = trimming.aspectMode,
             appliedEditState = trimming.previousAppliedEditState,
             saveState = SaveState.Idle,
         )
@@ -496,6 +585,7 @@ class StudioViewModel(
                 originalVideoPath = trimming.originalVideoPath,
                 activeVideoPath = trimming.originalVideoPath,
                 recordedAtMillis = trimming.recordedAtMillis,
+                aspectMode = trimming.aspectMode,
                 appliedEditState = null,
                 saveState = SaveState.Idle,
             )
@@ -542,6 +632,7 @@ class StudioViewModel(
                         originalVideoPath = trimming.originalVideoPath,
                         activeVideoPath = result.outputFile.absolutePath,
                         recordedAtMillis = trimming.recordedAtMillis,
+                        aspectMode = trimming.aspectMode,
                         appliedEditState = trimming.editState,
                         saveState = SaveState.Idle,
                     )
@@ -565,7 +656,10 @@ class StudioViewModel(
         waveformJob = null
         renderJob?.cancel()
         renderJob = null
+        cropJob?.cancel()
+        cropJob = null
         val pathsToDelete = when (val current = _phase.value) {
+            is StudioPhase.ProcessingCrop -> setOf(current.rawVideoPath)
             is StudioPhase.Review -> setOf(current.originalVideoPath, current.activeVideoPath)
             is StudioPhase.Trimming -> setOf(current.originalVideoPath, current.previousActiveVideoPath)
             else -> emptySet()
@@ -705,6 +799,29 @@ class StudioViewModel(
         viewModelScope.launch { preferences.setThemeMode(mode) }
     }
 
+    fun toggleRecordingAspectMode() {
+        if (_phase.value !is StudioPhase.Preview) return
+        val next = when (settings.value.recordingAspectMode) {
+            RecordingAspectMode.VERTICAL_9_16 -> RecordingAspectMode.WIDE_16_9
+            RecordingAspectMode.WIDE_16_9 -> RecordingAspectMode.VERTICAL_9_16
+        }
+        viewModelScope.launch { preferences.setRecordingAspectMode(next) }
+    }
+
+    fun updateWideCropOffsetYLive(offsetY: Float) {
+        if (_phase.value !is StudioPhase.Preview) return
+        preferences.updateWideCropOffsetYInMemory(offsetY)
+    }
+
+    fun commitWideCropOffsetY(offsetY: Float) {
+        viewModelScope.launch { preferences.persistWideCropOffsetY(offsetY) }
+    }
+
+    fun resetWideCropOffset() {
+        if (_phase.value !is StudioPhase.Preview) return
+        viewModelScope.launch { preferences.persistWideCropOffsetY(0f) }
+    }
+
     override fun onCleared() {
         super.onCleared()
         countdownJob?.cancel()
@@ -712,8 +829,10 @@ class StudioViewModel(
         leadInHoldJob?.cancel()
         waveformJob?.cancel()
         renderJob?.cancel()
+        cropJob?.cancel()
         preRollAudioMonitor.stopImmediately()
         val pathsToDelete = when (val current = _phase.value) {
+            is StudioPhase.ProcessingCrop -> setOf(current.rawVideoPath)
             is StudioPhase.Review -> setOf(current.originalVideoPath, current.activeVideoPath)
             is StudioPhase.Trimming -> setOf(current.originalVideoPath, current.previousActiveVideoPath)
             else -> emptySet()

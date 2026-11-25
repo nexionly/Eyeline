@@ -120,4 +120,70 @@ class ExampleUnitTest {
             com.example.capture.VideoShareHelper.authorityFor("com.aistudio.eyeline.vkqrmp"),
         )
     }
+
+    @Test
+    fun `aspect crop math resolves portrait rotation and computes even 16x9 NDC crop bounds`() {
+        // 1920x1080 raw sensor rotated 90 degrees => 1080x1920 upright portrait
+        val (displayW, displayH) = com.example.capture.AspectCropMath.resolveDisplaySize(
+            rawWidth = 1920,
+            rawHeight = 1080,
+            rotationDegrees = 90,
+        )
+        assertEquals(1080, displayW)
+        assertEquals(1920, displayH)
+
+        // Centered crop (offsetY = 0f)
+        val centered = com.example.capture.AspectCropMath.computeWide16x9Crop(displayW, displayH, 0f)
+        assertFalse(centered.isNoOp)
+        assertEquals(1080, centered.targetWidth)
+        assertEquals(608, centered.targetHeight)
+        assertEquals(0, centered.targetHeight % 2)
+        assertEquals(-1f, centered.left, 0.0001f)
+        assertEquals(1f, centered.right, 0.0001f)
+        assertEquals(-centered.bottom, centered.top, 0.0001f)
+        assertTrue(centered.top > centered.bottom)
+
+        // Top boundary (offsetY = -1f) reaches OpenGL top (+1f); bottom boundary (+1f) reaches -1f
+        val topAligned = com.example.capture.AspectCropMath.computeWide16x9Crop(displayW, displayH, -1f)
+        assertEquals(1f, topAligned.top, 0.0001f)
+        assertTrue(topAligned.bottom > 0f)
+
+        val bottomAligned = com.example.capture.AspectCropMath.computeWide16x9Crop(displayW, displayH, 1f)
+        assertEquals(-1f, bottomAligned.bottom, 0.0001f)
+        assertTrue(bottomAligned.top < 0f)
+
+        // 720x1280 portrait rounds 405px height to strictly even 404px for hardware MediaCodec safety
+        val hdCrop = com.example.capture.AspectCropMath.computeWide16x9Crop(720, 1280, 0f)
+        assertEquals(720, hdCrop.targetWidth)
+        assertEquals(404, hdCrop.targetHeight)
+        assertEquals(0, hdCrop.targetHeight % 2)
+    }
+
+    @Test
+    fun `aspect crop preview translation and vertical drag match NDC sign convention`() {
+        val widthPx = 900f
+        val heightPx = widthPx / com.example.capture.AspectCropMath.WIDE_ASPECT_RATIO // 506.25f
+        val maxTravel = com.example.capture.AspectCropMath.previewMaxTravelPx(widthPx, heightPx)
+        assertTrue(maxTravel > 500f)
+
+        // Dragging finger DOWN (+delta) pulls the top of the frame into view (offset moves negative)
+        val afterDownDrag = com.example.capture.AspectCropMath.offsetAfterVerticalDrag(
+            currentOffsetY = 0f,
+            dragDeltaPx = maxTravel / 2f,
+            maxTravelPx = maxTravel,
+        )
+        assertEquals(-0.5f, afterDownDrag, 0.001f)
+
+        // Negative offset translates the portrait preview DOWN (+Y in Compose) revealing its top
+        val translationY = com.example.capture.AspectCropMath.previewTranslationYPx(
+            viewportWidthPx = widthPx,
+            viewportHeightPx = heightPx,
+            offsetY = afterDownDrag,
+        )
+        assertEquals(maxTravel / 2f, translationY, 0.01f)
+
+        // Center snap cleanly snaps tiny offsets back to 0f
+        assertEquals(0f, com.example.capture.AspectCropMath.snapNearCenter(0.02f), 0.0001f)
+        assertEquals(0.25f, com.example.capture.AspectCropMath.snapNearCenter(0.25f), 0.0001f)
+    }
 }

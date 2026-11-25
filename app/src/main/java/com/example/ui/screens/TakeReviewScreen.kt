@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -74,6 +75,7 @@ import androidx.media3.ui.PlayerView
 import com.example.R
 import com.example.capture.VideoGalleryExporter
 import com.example.data.model.ScriptMetricsCalculator
+import com.example.data.preferences.RecordingAspectMode
 import com.example.ui.theme.DarkCharcoalBg
 import com.example.ui.theme.StudioAmber
 import com.example.ui.theme.VuGreen
@@ -103,6 +105,7 @@ fun TakeReviewScreen(
     onShareTake: () -> Unit,
     onDismissShareError: () -> Unit,
     modifier: Modifier = Modifier,
+    aspectMode: RecordingAspectMode = RecordingAspectMode.VERTICAL_9_16,
 ) {
     val context = LocalContext.current
     val previewMetadata = remember(scriptTitle, recordedAtMillis) {
@@ -116,6 +119,9 @@ fun TakeReviewScreen(
     var isMuted by remember { mutableStateOf(false) }
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
+    var isLandscapeVideo by remember(videoFilePath, aspectMode) {
+        mutableStateOf(aspectMode == RecordingAspectMode.WIDE_16_9)
+    }
 
     val exoPlayer = remember(videoFilePath) {
         ExoPlayer.Builder(context).build().apply {
@@ -138,6 +144,12 @@ fun TakeReviewScreen(
                     durationMs = exoPlayer.duration.coerceAtLeast(0L)
                 }
             }
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    isLandscapeVideo = videoSize.width > videoSize.height
+                }
+            }
         }
         exoPlayer.addListener(listener)
         onDispose {
@@ -155,19 +167,25 @@ fun TakeReviewScreen(
         }
     }
 
+    val targetResizeMode = if (isLandscapeVideo) {
+        AspectRatioFrameLayout.RESIZE_MODE_FIT
+    } else {
+        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .testTag("take_review_screen"),
     ) {
-        // Full-screen vertical video player
+        // Adaptive video player: FIT for 16:9 widescreen takes, ZOOM for vertical 9:16 takes
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    resizeMode = targetResizeMode
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -177,6 +195,9 @@ fun TakeReviewScreen(
             update = { view ->
                 if (view.player !== exoPlayer) {
                     view.player = exoPlayer
+                }
+                if (view.resizeMode != targetResizeMode) {
+                    view.resizeMode = targetResizeMode
                 }
             },
             modifier = Modifier
@@ -254,6 +275,19 @@ fun TakeReviewScreen(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (isLandscapeVideo) {
+                        Text(
+                            text = stringResource(R.string.review_wide_badge),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StudioAmber,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(StudioAmber.copy(alpha = 0.16f))
+                                .border(1.dp, StudioAmber.copy(alpha = 0.45f), CircleShape)
+                                .padding(horizontal = 7.dp, vertical = 2.dp)
+                                .testTag("review_wide_badge"),
+                        )
+                    }
                     if (isEdited) {
                         Text(
                             text = stringResource(R.string.review_edited_badge),

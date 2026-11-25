@@ -56,6 +56,19 @@
     <string name="studio_drag_hint">Tap to pause · Drag to scrub</string>
     <string name="studio_volume_hint">Options</string>
     <string name="studio_flip_camera">Switch camera</string>
+    <string name="studio_aspect_vertical_label">9:16</string>
+    <string name="studio_aspect_wide_label">16:9</string>
+    <string name="studio_aspect_toggle_cd">Switch between 9:16 vertical and 16:9 wide recording</string>
+    <string name="studio_wide_reframe_hint">Drag frame to adjust · Double-tap to center</string>
+    <string name="studio_wide_center_label">Center</string>
+    <string name="studio_wide_up_format">Up %1$d%%</string>
+    <string name="studio_wide_down_format">Down %1$d%%</string>
+    <string name="studio_wide_badge_recording">16:9 REC</string>
+    <string name="studio_wide_badge_preview">16:9 WIDE</string>
+    <string name="studio_cropping_title">Framing 16:9 video…</string>
+    <string name="studio_cropping_progress">Framing 16:9 · %1$d%%</string>
+    <string name="studio_cropping_subtitle">Cropping your take to widescreen while keeping native sharpness.</string>
+    <string name="studio_cropping_cancel">Cancel</string>
 
     <!-- Quick Adjust Drawer -->
     <string name="adjust_title">Studio Controls</string>
@@ -82,6 +95,7 @@
     <string name="review_retake">Retake</string>
     <string name="review_trim">Trim</string>
     <string name="review_edited_badge">Edited</string>
+    <string name="review_wide_badge">16:9 WIDE</string>
     <string name="review_edit_script">Edit Script</string>
     <string name="review_save">Save Video</string>
     <string name="review_saving">Saving…</string>

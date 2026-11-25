@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -74,6 +75,7 @@ fun TeleprompterOverlay(
     scrollResetCounter: Int,
     onTapTogglePause: () -> Unit,
     modifier: Modifier = Modifier,
+    overlayHeight: Dp = 232.dp,
 ) {
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
@@ -119,7 +121,6 @@ fun TeleprompterOverlay(
         }
     }
 
-    val overlayHeight = 232.dp
     val eyeLineTopOffset = 52.dp
     val eyeLineBandHeight = (fontSizeSp * 1.65f).coerceIn(46f, 78f).dp
 

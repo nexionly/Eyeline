@@ -30,6 +30,11 @@ enum class RimLightTone {
     COOL,
 }
 
+enum class RecordingAspectMode {
+    VERTICAL_9_16,
+    WIDE_16_9,
+}
+
 data class PrompterSettings(
     val fontSizeSp: Float = 28f,
     val scrollSpeedLevel: Float = 3.0f,
@@ -41,6 +46,8 @@ data class PrompterSettings(
     val rimLightIntensity: Float = 0.72f,
     val volumeDownShutterEnabled: Boolean = true,
     val countdownSoundsEnabled: Boolean = true,
+    val recordingAspectMode: RecordingAspectMode = RecordingAspectMode.VERTICAL_9_16,
+    val wideCropOffsetY: Float = 0f,
     val hasSeededStarter: Boolean = false,
 )
 
@@ -58,6 +65,8 @@ class StudioPreferencesRepository(
         val RIM_LIGHT_INTENSITY = floatPreferencesKey("rim_light_intensity")
         val VOLUME_DOWN_SHUTTER = booleanPreferencesKey("volume_down_shutter_enabled")
         val COUNTDOWN_SOUNDS = booleanPreferencesKey("countdown_sounds_enabled")
+        val RECORDING_ASPECT_MODE = stringPreferencesKey("recording_aspect_mode")
+        val WIDE_CROP_OFFSET_Y = floatPreferencesKey("wide_crop_offset_y")
         val HAS_SEEDED_STARTER = booleanPreferencesKey("has_seeded_starter")
     }
 
@@ -79,6 +88,10 @@ class StudioPreferencesRepository(
             rimLightIntensity = (prefs[Keys.RIM_LIGHT_INTENSITY] ?: 0.72f).coerceIn(0.35f, 1f),
             volumeDownShutterEnabled = prefs[Keys.VOLUME_DOWN_SHUTTER] ?: true,
             countdownSoundsEnabled = prefs[Keys.COUNTDOWN_SOUNDS] ?: true,
+            recordingAspectMode = prefs[Keys.RECORDING_ASPECT_MODE]?.let { raw ->
+                runCatching { RecordingAspectMode.valueOf(raw) }.getOrNull()
+            } ?: RecordingAspectMode.VERTICAL_9_16,
+            wideCropOffsetY = (prefs[Keys.WIDE_CROP_OFFSET_Y] ?: 0f).coerceIn(-1f, 1f),
             hasSeededStarter = prefs[Keys.HAS_SEEDED_STARTER] ?: false,
         )
     }
@@ -148,6 +161,22 @@ class StudioPreferencesRepository(
     suspend fun setCountdownSoundsEnabled(enabled: Boolean) {
         _cachedSettings.update { it.copy(countdownSoundsEnabled = enabled) }
         context.studioDataStore.edit { it[Keys.COUNTDOWN_SOUNDS] = enabled }
+    }
+
+    suspend fun setRecordingAspectMode(mode: RecordingAspectMode) {
+        _cachedSettings.update { it.copy(recordingAspectMode = mode) }
+        context.studioDataStore.edit { it[Keys.RECORDING_ASPECT_MODE] = mode.name }
+    }
+
+    fun updateWideCropOffsetYInMemory(offsetY: Float) {
+        val clamped = offsetY.coerceIn(-1f, 1f)
+        _cachedSettings.update { it.copy(wideCropOffsetY = clamped) }
+    }
+
+    suspend fun persistWideCropOffsetY(offsetY: Float) {
+        val clamped = offsetY.coerceIn(-1f, 1f)
+        _cachedSettings.update { it.copy(wideCropOffsetY = clamped) }
+        context.studioDataStore.edit { it[Keys.WIDE_CROP_OFFSET_Y] = clamped }
     }
 
     suspend fun markStarterSeeded() {

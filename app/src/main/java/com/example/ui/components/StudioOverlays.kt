@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -159,12 +160,15 @@ fun ScreenRimLightOverlay(
 }
 
 /**
- * Optional rule-of-thirds + vertical 9:16 TikTok/Reels safe-zone framing guide.
+ * Optional rule-of-thirds framing guide.
+ * In vertical 9:16 mode, includes the right-edge TikTok/Reels safe-zone indicator.
+ * In wide 16:9 mode, adapts cleanly to widescreen rule-of-thirds + broadcast corner ticks.
  */
 @Composable
 fun FramingGridOverlay(
     visible: Boolean,
     modifier: Modifier = Modifier,
+    isWideMode: Boolean = false,
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -190,15 +194,36 @@ fun FramingGridOverlay(
             drawLine(lineColor, Offset(0f, thirdH), Offset(size.width, thirdH), strokeWidth = strokePx)
             drawLine(lineColor, Offset(0f, thirdH * 2f), Offset(size.width, thirdH * 2f), strokeWidth = strokePx)
 
-            // Subtle vertical center axis ticks & TikTok right-edge safe-zone dashed line
-            val safeRightX = size.width * 0.86f
-            drawLine(
-                color = StudioAmber.copy(alpha = 0.30f),
-                start = Offset(safeRightX, size.height * 0.36f),
-                end = Offset(safeRightX, size.height * 0.80f),
-                strokeWidth = 1.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
-            )
+            if (!isWideMode) {
+                // Vertical 9:16 TikTok/Reels right-edge safe-zone dashed line
+                val safeRightX = size.width * 0.86f
+                drawLine(
+                    color = StudioAmber.copy(alpha = 0.30f),
+                    start = Offset(safeRightX, size.height * 0.36f),
+                    end = Offset(safeRightX, size.height * 0.80f),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                )
+            } else {
+                // Subtle broadcast action-safe corner brackets for 16:9 framing
+                val insetX = size.width * 0.05f
+                val insetY = size.height * 0.07f
+                val bracket = 12.dp.toPx()
+                val bracketColor = StudioAmber.copy(alpha = 0.42f)
+                val bStroke = 1.25.dp.toPx()
+                // Top-left
+                drawLine(bracketColor, Offset(insetX, insetY), Offset(insetX + bracket, insetY), bStroke)
+                drawLine(bracketColor, Offset(insetX, insetY), Offset(insetX, insetY + bracket), bStroke)
+                // Top-right
+                drawLine(bracketColor, Offset(size.width - insetX, insetY), Offset(size.width - insetX - bracket, insetY), bStroke)
+                drawLine(bracketColor, Offset(size.width - insetX, insetY), Offset(size.width - insetX, insetY + bracket), bStroke)
+                // Bottom-left
+                drawLine(bracketColor, Offset(insetX, size.height - insetY), Offset(insetX + bracket, size.height - insetY), bStroke)
+                drawLine(bracketColor, Offset(insetX, size.height - insetY), Offset(insetX, size.height - insetY - bracket), bStroke)
+                // Bottom-right
+                drawLine(bracketColor, Offset(size.width - insetX, size.height - insetY), Offset(size.width - insetX - bracket, size.height - insetY), bStroke)
+                drawLine(bracketColor, Offset(size.width - insetX, size.height - insetY), Offset(size.width - insetX, size.height - insetY - bracket), bStroke)
+            }
 
             // Center crosshair reticle for head-and-shoulders framing
             val cx = size.width / 2f
@@ -298,12 +323,18 @@ fun CountdownOverlay(
     secondsRemaining: Int,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    topPadding: Dp = 310.dp,
+    compact: Boolean = false,
 ) {
+    val circleSize = if (compact) 88.dp else 124.dp
+    val digitFontSize = if (compact) 44.sp else 60.sp
+    val spacerHeight = if (compact) 10.dp else 16.dp
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .clickable(onClick = onCancel)
-            .padding(top = 310.dp)
+            .padding(top = topPadding)
             .testTag("countdown_overlay"),
         contentAlignment = Alignment.Center,
     ) {
@@ -313,7 +344,7 @@ fun CountdownOverlay(
         ) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(124.dp),
+                modifier = Modifier.size(circleSize),
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     drawCircle(
@@ -343,13 +374,13 @@ fun CountdownOverlay(
                         text = digit.toString(),
                         fontFamily = SpaceGroteskFontFamily,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 60.sp,
+                        fontSize = digitFontSize,
                         color = Color.White,
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(spacerHeight))
 
             Text(
                 text = stringResource(R.string.studio_countdown_cancel),

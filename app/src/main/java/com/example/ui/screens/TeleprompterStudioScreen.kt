@@ -107,12 +107,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.capture.HardwareShutterBus
 import com.example.data.model.ScriptMetricsCalculator
+import com.example.data.preferences.RecordingAspectMode
+import com.example.ui.components.AspectModeTogglePill
 import com.example.ui.components.CountdownOverlay
 import com.example.ui.components.FramingGridOverlay
 import com.example.ui.components.LiveAudioLevelMeter
 import com.example.ui.components.QuickAdjustDrawer
 import com.example.ui.components.ScreenRimLightOverlay
 import com.example.ui.components.TeleprompterOverlay
+import com.example.ui.components.Wide16x9ViewfinderCard
+import com.example.ui.components.WideCropProcessingScreen
 import com.example.ui.theme.DarkCharcoalBg
 import com.example.ui.theme.StudioAmber
 import com.example.ui.theme.TallyCrimson
@@ -209,6 +213,7 @@ fun TeleprompterStudioScreen(
     // in BOTH Dark & Light modes, and restores original brightness cleanly when off or leaving.
     val isRimLightActiveOnCamera = hasPermissions &&
         settings.rimLightEnabled &&
+        phase !is StudioPhase.ProcessingCrop &&
         phase !is StudioPhase.Review &&
         phase !is StudioPhase.Trimming
 
@@ -236,6 +241,7 @@ fun TeleprompterStudioScreen(
     // Sync Hardware Volume Down Shutter Bus (active only during camera studio capture phases)
     LaunchedEffect(hasPermissions, phase, settings.volumeDownShutterEnabled) {
         HardwareShutterBus.isStudioCaptureActive = hasPermissions &&
+            phase !is StudioPhase.ProcessingCrop &&
             phase !is StudioPhase.Review &&
             phase !is StudioPhase.Trimming
         HardwareShutterBus.isVolumeDownShutterEnabled = settings.volumeDownShutterEnabled
@@ -259,6 +265,7 @@ fun TeleprompterStudioScreen(
         when (phase) {
             is StudioPhase.Countdown -> viewModel.cancelCountdown()
             is StudioPhase.Recording -> viewModel.requestStopRecording()
+            is StudioPhase.ProcessingCrop -> viewModel.cancelWideCrop()
             is StudioPhase.Review -> viewModel.retake()
             is StudioPhase.Trimming -> viewModel.cancelTrimEditor()
             is StudioPhase.Preview -> onCloseStudio()
@@ -282,14 +289,24 @@ fun TeleprompterStudioScreen(
         return
     }
 
-    // Instant Take Review & Dedicated Trim/Cut Editor Phases
+    // Post-capture GPU 16:9 framing progress screen
     val currentPhase = phase
+    if (currentPhase is StudioPhase.ProcessingCrop) {
+        WideCropProcessingScreen(
+            progress = currentPhase.progress,
+            onCancel = { viewModel.cancelWideCrop() },
+        )
+        return
+    }
+
+    // Instant Take Review & Dedicated Trim/Cut Editor Phases
     if (currentPhase is StudioPhase.Review) {
         val shareChooserTitle = stringResource(R.string.review_share_chooser_title)
         TakeReviewScreen(
             videoFilePath = currentPhase.activeVideoPath,
             scriptTitle = script?.title.orEmpty(),
             recordedAtMillis = currentPhase.recordedAtMillis,
+            aspectMode = currentPhase.aspectMode,
             isEdited = currentPhase.isEdited,
             saveState = currentPhase.saveState,
             shareState = currentPhase.shareState,
@@ -522,9 +539,9 @@ fun TeleprompterStudioScreen(
                                                 "Recording stopped with an error (${event.error})."
                                         }
                                         runCatching { tempFile.delete() }
-                                        viewModel.onRecordingFinalized(null, msg)
+                                        viewModel.onRecordingFinalized(null, msg, context)
                                     } else {
-                                        viewModel.onRecordingFinalized(tempFile, null)
+                                        viewModel.onRecordingFinalized(tempFile, null, context)
                                     }
                                 }
                             }
@@ -555,19 +572,22 @@ fun TeleprompterStudioScreen(
     }
 
     val recordingPhase = currentPhase as? StudioPhase.Recording
+    val countdownPhase = currentPhase as? StudioPhase.Countdown
     val isRecording = recordingPhase != null
-    val isCountdown = currentPhase is StudioPhase.Countdown
+    val isCountdown = countdownPhase != null
+    val isPreview = currentPhase is StudioPhase.Preview
     val isScrollPaused = recordingPhase?.isScrollPaused == true
     val isAutoScrollingNow = recordingPhase != null &&
         recordingPhase.hasStartedCapture &&
         !recordingPhase.isLeadInHold &&
         !recordingPhase.isScrollPaused
     val elapsedSeconds = recordingPhase?.elapsedSeconds ?: 0L
+    val isWideMode = settings.recordingAspectMode == RecordingAspectMode.WIDE_16_9
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(if (isWideMode) Color(0xFF07080B) else Color.Black)
             .pointerInput(isRecording, showQuickDrawer) {
                 detectTapGestures(
                     onTap = {
@@ -581,33 +601,42 @@ fun TeleprompterStudioScreen(
             }
             .testTag("teleprompter_studio_screen"),
     ) {
-        // Layer 1: Full-screen vertical CameraX Preview
-        AndroidView(
-            factory = { previewView },
-            modifier = Modifier.fillMaxSize(),
-        )
+        // Layer 1 & 2 (Classic Vertical 9:16 Mode): Full-bleed CameraX Preview + 9:16 Grid
+        if (!isWideMode) {
+            AndroidView(
+                factory = {
+                    (previewView.parent as? ViewGroup)?.removeView(previewView)
+                    previewView
+                },
+                onRelease = { view ->
+                    (view.parent as? ViewGroup)?.removeView(view)
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
 
-        // Layer 2: Optional Framing Grid (Rule of Thirds + TikTok Safe Zone)
-        FramingGridOverlay(visible = settings.showFramingGrid)
+            FramingGridOverlay(
+                visible = settings.showFramingGrid,
+                isWideMode = false,
+            )
+        }
 
-        // Layer 3: Screen Rim Light Overlay (works in BOTH Dark & Light modes!)
+        // Layer 3: Screen Rim Light Overlay (perimeter face fill light in both 9:16 & 16:9 modes)
         ScreenRimLightOverlay(
             enabled = settings.rimLightEnabled,
             tone = settings.rimLightTone,
             intensity = settings.rimLightIntensity,
         )
 
-        // Layer 4: Top Lens-Aligned HUD + Teleprompter Overlay
+        // Layer 4: Top Lens-Aligned HUD + Teleprompter Overlay (+ 16:9 Viewfinder Stage in Wide Mode)
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
+                .fillMaxSize()
                 .statusBarsPadding()
                 .displayCutoutPadding()
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Compact Studio Status Strip (Close | Top-Center Live Audio Bars & REC Timer | Flip Camera)
+            // Compact Studio Status Strip (Close | Top-Center Live Audio Bars & REC Timer | 9:16/16:9 Pill + Flip Camera)
             Box(
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -670,23 +699,39 @@ fun TeleprompterStudioScreen(
                     )
                 }
 
-                // Camera Flip button (only enabled when idle in Preview)
-                IconButton(
-                    onClick = { viewModel.toggleCameraFacing() },
-                    enabled = currentPhase is StudioPhase.Preview,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(DarkCharcoalBg.copy(alpha = if (currentPhase is StudioPhase.Preview) 0.65f else 0.25f))
-                        .border(1.dp, Color.White.copy(alpha = 0.14f), CircleShape)
-                        .testTag("studio_flip_camera_button"),
+                // Right Cluster: One-Tap 9:16 / 16:9 Aspect Pill + Camera Flip button
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.align(Alignment.CenterEnd),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Cameraswitch,
-                        contentDescription = stringResource(R.string.studio_flip_camera),
-                        tint = Color.White.copy(alpha = if (currentPhase is StudioPhase.Preview) 1f else 0.4f),
+                    AspectModeTogglePill(
+                        mode = settings.recordingAspectMode,
+                        enabled = isPreview,
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            viewModel.toggleRecordingAspectMode()
+                        },
                     )
+
+                    AnimatedVisibility(visible = !isRecording) {
+                        IconButton(
+                            onClick = { viewModel.toggleCameraFacing() },
+                            enabled = isPreview,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(DarkCharcoalBg.copy(alpha = if (isPreview) 0.65f else 0.25f))
+                                .border(1.dp, Color.White.copy(alpha = 0.14f), CircleShape)
+                                .testTag("studio_flip_camera_button"),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Cameraswitch,
+                                contentDescription = stringResource(R.string.studio_flip_camera),
+                                tint = Color.White.copy(alpha = if (isPreview) 1f else 0.4f),
+                            )
+                        }
+                    }
                 }
             }
 
@@ -701,6 +746,7 @@ fun TeleprompterStudioScreen(
                 isScrollPaused = isScrollPaused,
                 scrollResetCounter = scrollResetCounter,
                 onTapTogglePause = { viewModel.toggleScrollPause() },
+                overlayHeight = if (isWideMode) 224.dp else 232.dp,
             )
 
             // Unobtrusive One-Handed Micro-Hint Row + Options shortcut
@@ -710,7 +756,13 @@ fun TeleprompterStudioScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.studio_drag_hint),
+                    text = stringResource(
+                        if (isWideMode && isPreview) {
+                            R.string.studio_wide_reframe_hint
+                        } else {
+                            R.string.studio_drag_hint
+                        }
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.72f),
                     modifier = Modifier
@@ -774,12 +826,42 @@ fun TeleprompterStudioScreen(
                     )
                 }
             }
+
+            // Wide 16:9 Split Stage: Interactive 16:9 Viewfinder framed cleanly below the teleprompter
+            if (isWideMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Wide16x9ViewfinderCard(
+                        previewView = previewView,
+                        cropOffsetY = settings.wideCropOffsetY,
+                        showFramingGrid = settings.showFramingGrid,
+                        canReframe = isPreview,
+                        isRecording = isRecording,
+                        countdownSeconds = countdownPhase?.secondsRemaining,
+                        onOffsetDragLive = viewModel::updateWideCropOffsetYLive,
+                        onOffsetDragCommit = viewModel::commitWideCropOffsetY,
+                        onResetCenter = viewModel::resetWideCropOffset,
+                        onTapDuringRecording = { viewModel.toggleScrollPause() },
+                        onCancelCountdown = { viewModel.cancelCountdown() },
+                    )
+                }
+                // Reserve clean vertical room for the bottom shutter control deck
+                Spacer(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .height(106.dp),
+                )
+            }
         }
 
-        // Layer 5: 3-Second Animated Countdown Overlay
-        if (currentPhase is StudioPhase.Countdown) {
+        // Layer 5 (Vertical 9:16 Mode): 3-Second Animated Countdown Overlay
+        if (!isWideMode && countdownPhase != null) {
             CountdownOverlay(
-                secondsRemaining = currentPhase.secondsRemaining,
+                secondsRemaining = countdownPhase.secondsRemaining,
                 onCancel = { viewModel.cancelCountdown() },
             )
         }
