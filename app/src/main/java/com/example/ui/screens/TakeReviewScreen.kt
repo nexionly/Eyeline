@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -77,6 +78,7 @@ import com.example.ui.theme.DarkCharcoalBg
 import com.example.ui.theme.StudioAmber
 import com.example.ui.theme.VuGreen
 import com.example.ui.viewmodel.SaveState
+import com.example.ui.viewmodel.ShareState
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -93,10 +95,13 @@ fun TakeReviewScreen(
     recordedAtMillis: Long,
     isEdited: Boolean,
     saveState: SaveState,
+    shareState: ShareState,
     onRetake: () -> Unit,
     onTrimTake: () -> Unit,
     onEditScript: () -> Unit,
     onSaveToPhone: () -> Unit,
+    onShareTake: () -> Unit,
+    onDismissShareError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -367,6 +372,21 @@ fun TakeReviewScreen(
                 else -> Unit
             }
 
+            if (shareState is ShareState.Error) {
+                Text(
+                    text = shareState.message.ifBlank { stringResource(R.string.review_share_error) },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFFFB4B6),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF4A1517).copy(alpha = 0.85f))
+                        .clickable { onDismissShareError() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .testTag("review_share_error_banner"),
+                )
+            }
+
             // Playback Scrubber Bar
             if (durationMs > 0L) {
                 Column {
@@ -503,61 +523,122 @@ fun TakeReviewScreen(
                 }
             }
 
-            // Primary Hero CTA: Save Video
+            // Primary Export Row: Save Video | System Share Sheet
             val isSaved = saveState is SaveState.Saved
             val isSaving = saveState is SaveState.Saving
-            Button(
-                onClick = onSaveToPhone,
-                enabled = !isSaving && !isSaved,
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isSaved) VuGreen else StudioAmber,
-                    contentColor = Color(0xFF161100),
-                    disabledContainerColor = if (isSaved) VuGreen else StudioAmber.copy(alpha = 0.55f),
-                    disabledContentColor = Color(0xFF161100),
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp)
-                    .testTag("review_save_video_button"),
+            val isPreparingShare = shareState is ShareState.Preparing
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                when {
-                    isSaving -> {
+                Button(
+                    onClick = onSaveToPhone,
+                    enabled = !isSaving && !isSaved,
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isSaved) VuGreen else StudioAmber,
+                        contentColor = Color(0xFF161100),
+                        disabledContainerColor = if (isSaved) VuGreen else StudioAmber.copy(alpha = 0.55f),
+                        disabledContentColor = Color(0xFF161100),
+                    ),
+                    modifier = Modifier
+                        .weight(1.42f)
+                        .height(54.dp)
+                        .testTag("review_save_video_button"),
+                ) {
+                    when {
+                        isSaving -> {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF161100),
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.review_saving),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        isSaved -> {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.review_saved),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        else -> {
+                            Icon(
+                                imageVector = Icons.Rounded.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.review_save),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        if (exoPlayer.isPlaying) {
+                            exoPlayer.pause()
+                        }
+                        onShareTake()
+                    },
+                    enabled = !isPreparingShare,
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        Color.White.copy(alpha = 0.34f),
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = DarkCharcoalBg.copy(alpha = 0.72f),
+                        contentColor = Color.White,
+                        disabledContainerColor = DarkCharcoalBg.copy(alpha = 0.45f),
+                        disabledContentColor = Color.White.copy(alpha = 0.65f),
+                    ),
+                    modifier = Modifier
+                        .weight(0.88f)
+                        .height(54.dp)
+                        .testTag("review_share_video_button"),
+                ) {
+                    if (isPreparingShare) {
                         CircularProgressIndicator(
                             strokeWidth = 2.dp,
-                            color = Color(0xFF161100),
+                            color = StudioAmber,
                             modifier = Modifier.size(18.dp),
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.review_saving),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-
-                    isSaved -> {
+                    } else {
                         Icon(
-                            imageVector = Icons.Rounded.CheckCircle,
+                            imageVector = Icons.Rounded.Share,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = stringResource(R.string.review_saved),
+                            text = stringResource(R.string.review_share),
                             style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-
-                    else -> {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.review_save),
-                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
                     }
                 }

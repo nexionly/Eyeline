@@ -13,6 +13,8 @@ import com.example.capture.VideoExportMetadata
 import com.example.capture.VideoExportResult
 import com.example.capture.VideoGalleryExporter
 import com.example.capture.VideoRenderResult
+import com.example.capture.VideoShareHelper
+import com.example.capture.VideoShareResult
 import com.example.capture.WaveformLoadState
 import com.example.data.local.ScriptEntity
 import com.example.data.preferences.PrompterSettings
@@ -43,6 +45,12 @@ sealed interface SaveState {
     data class Error(val message: String) : SaveState
 }
 
+sealed interface ShareState {
+    data object Idle : ShareState
+    data object Preparing : ShareState
+    data class Error(val message: String) : ShareState
+}
+
 sealed interface TrimRenderState {
     data object Idle : TrimRenderState
     data class Rendering(val progress: Float = 0f) : TrimRenderState
@@ -65,6 +73,7 @@ sealed interface StudioPhase {
         val recordedAtMillis: Long = System.currentTimeMillis(),
         val appliedEditState: TimelineEditState? = null,
         val saveState: SaveState = SaveState.Idle,
+        val shareState: ShareState = ShareState.Idle,
     ) : StudioPhase {
         val isEdited: Boolean
             get() = activeVideoPath != originalVideoPath
@@ -598,6 +607,51 @@ class StudioViewModel(
                 } else {
                     phaseState
                 }
+            }
+        }
+    }
+
+    fun shareTake(context: Context, chooserTitle: String) {
+        val current = _phase.value as? StudioPhase.Review ?: return
+        if (current.shareState is ShareState.Preparing) return
+
+        val resolvedTitle = script.value?.title.orEmpty()
+        _phase.value = current.copy(shareState = ShareState.Preparing)
+
+        viewModelScope.launch {
+            val result = VideoShareHelper.prepareShareIntent(
+                context = context,
+                sourceFile = File(current.activeVideoPath),
+                scriptTitle = resolvedTitle,
+                recordedAtMillis = current.recordedAtMillis,
+                chooserTitle = chooserTitle,
+            )
+
+            val nextShareState = when (result) {
+                is VideoShareResult.Ready -> {
+                    val launchError = VideoShareHelper.launchChooser(context, result.chooserIntent)
+                    if (launchError != null) ShareState.Error(launchError) else ShareState.Idle
+                }
+
+                is VideoShareResult.Failure -> ShareState.Error(result.message)
+            }
+
+            _phase.update { phaseState ->
+                if (phaseState is StudioPhase.Review) {
+                    phaseState.copy(shareState = nextShareState)
+                } else {
+                    phaseState
+                }
+            }
+        }
+    }
+
+    fun dismissShareError() {
+        _phase.update { phaseState ->
+            if (phaseState is StudioPhase.Review && phaseState.shareState is ShareState.Error) {
+                phaseState.copy(shareState = ShareState.Idle)
+            } else {
+                phaseState
             }
         }
     }

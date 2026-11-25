@@ -112,4 +112,12 @@ class ExampleUnitTest {
         assertFalse(state.hasEdits)
         assertEquals(10_000L, state.keptDurationMs)
     }
+
+    @Test
+    fun `video share helper derives expected FileProvider authority`() {
+        assertEquals(
+            "com.aistudio.eyeline.vkqrmp.fileprovider",
+            com.example.capture.VideoShareHelper.authorityFor("com.aistudio.eyeline.vkqrmp"),
+        )
+    }
 }

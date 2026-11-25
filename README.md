@@ -66,6 +66,7 @@ Film crisp Reels, Shorts, and TikToks in a single take with natural eye contact�
 ### Script Library & Metadata-Tagged Gallery Export
 - **Offline Script Desk**: Create, search, duplicate, paste, and auto-save multiple scripts locally with live word counts and speed-calibrated read-time estimates.
 - **Rich Gallery Metadata**: Exporting via **Save Video** writes directly to `Movies/Eyeline` using Android Scoped Storage (`MediaStore`), embedding the **script title** and **recording date/time** into both the file name and media metadata.
+- **System Share Sheet**: Tap **Share** right from Take Review to send either original or trimmed takes directly to Instagram, YouTube, messaging, Drive, or any external app via Android's Share Sheet with a clean script-titled filename.
 
 ---
 
@@ -136,6 +137,15 @@ app/src/main/java/com/example/
    ```
 
 > **No API keys or backend configuration required.** Eyeline runs completely offline on-device out of the box.
+
+### Publishing an APK Release (GitHub Actions)
+Pushing any version tag (for example `v3.0`) automatically runs unit tests, builds `Eyeline-v3.0.apk`, and publishes a GitHub Release with the APK attached:
+```bash
+git tag v3.0
+git push origin v3.0
+```
+- **Out of the box**: Builds an installable APK immediately with zero extra setup.
+- **Production release signing (optional)**: Add `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, and `KEY_PASSWORD` under **Settings → Secrets and variables → Actions** to sign release APKs with your upload keystore. You can also trigger builds manually from the **Actions** tab.
 
 ---
 

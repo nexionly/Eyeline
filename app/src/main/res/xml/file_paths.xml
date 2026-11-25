@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path
+        name="eyeline_cache_takes"
+        path="." />
+    <cache-path
+        name="eyeline_shared_takes"
+        path="shared_takes/" />
+</paths>

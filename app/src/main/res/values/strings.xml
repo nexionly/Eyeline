@@ -86,6 +86,10 @@
     <string name="review_save">Save Video</string>
     <string name="review_saving">Saving…</string>
     <string name="review_saved">Saved to Gallery</string>
+    <string name="review_share">Share</string>
+    <string name="review_sharing">Preparing…</string>
+    <string name="review_share_chooser_title">Share take with</string>
+    <string name="review_share_error">Could not open the share sheet. Please try again.</string>
     <string name="review_saved_banner">Saved to Movies/Eyeline</string>
     <string name="review_save_error">Could not save video. Please try again.</string>
     <string name="review_play_pause">Toggle playback</string>

@@ -285,12 +285,14 @@ fun TeleprompterStudioScreen(
     // Instant Take Review & Dedicated Trim/Cut Editor Phases
     val currentPhase = phase
     if (currentPhase is StudioPhase.Review) {
+        val shareChooserTitle = stringResource(R.string.review_share_chooser_title)
         TakeReviewScreen(
             videoFilePath = currentPhase.activeVideoPath,
             scriptTitle = script?.title.orEmpty(),
             recordedAtMillis = currentPhase.recordedAtMillis,
             isEdited = currentPhase.isEdited,
             saveState = currentPhase.saveState,
+            shareState = currentPhase.shareState,
             onRetake = { viewModel.retake() },
             onTrimTake = { viewModel.openTrimEditor() },
             onEditScript = onEditScript,
@@ -298,6 +300,11 @@ fun TeleprompterStudioScreen(
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 viewModel.saveTakeToGallery(context)
             },
+            onShareTake = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.shareTake(context, shareChooserTitle)
+            },
+            onDismissShareError = { viewModel.dismissShareError() },
         )
         return
     }
