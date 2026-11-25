@@ -1,7 +1,5 @@
 package com.example.ui.components
 
-import android.view.ViewGroup
-import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -27,8 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -54,14 +50,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -73,7 +70,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.example.R
 import com.example.capture.AspectCropMath
 import com.example.data.preferences.RecordingAspectMode
@@ -180,12 +176,12 @@ fun AspectModeTogglePill(
  */
 @Composable
 fun Wide16x9ViewfinderCard(
-    previewView: PreviewView,
     cropOffsetY: Float,
     showFramingGrid: Boolean,
     canReframe: Boolean,
     isRecording: Boolean,
     countdownSeconds: Int?,
+    onViewportBoundsChanged: (Rect) -> Unit,
     onOffsetDragLive: (Float) -> Unit,
     onOffsetDragCommit: (Float) -> Unit,
     onResetCenter: () -> Unit,
@@ -251,31 +247,25 @@ fun Wide16x9ViewfinderCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(AspectCropMath.WIDE_ASPECT_RATIO)
+            .onGloballyPositioned { coords ->
+                onViewportBoundsChanged(coords.boundsInRoot())
+            }
             .clip(RoundedCornerShape(18.dp))
-            .background(Color.Black)
             .border(borderWidth, borderColor, RoundedCornerShape(18.dp))
             .testTag("wide_16x9_viewfinder"),
         contentAlignment = Alignment.Center,
     ) {
-        val viewportWidthDp = maxWidth
-        val viewportWidthPx = with(density) { viewportWidthDp.toPx() }
+        val viewportWidthPx = with(density) { maxWidth.toPx() }
         val viewportHeightPx = with(density) { maxHeight.toPx() }
-        val portraitHeightDp = viewportWidthDp * AspectCropMath.PORTRAIT_SENSOR_HEIGHT_OVER_WIDTH
         val maxTravelPx = AspectCropMath.previewMaxTravelPx(
             viewportWidthPx = viewportWidthPx,
             viewportHeightPx = viewportHeightPx,
         )
-        val translationY = AspectCropMath.previewTranslationYPx(
-            viewportWidthPx = viewportWidthPx,
-            viewportHeightPx = viewportHeightPx,
-            offsetY = displayOffset,
-        )
 
-        // Clipped portrait 9:16 TextureView translated vertically for pixel-accurate 16:9 preview
+        // Transparent gesture surface directly over the permanently attached camera feed
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clipToBounds()
                 .pointerInput(maxTravelPx) {
                     detectVerticalDragGestures(
                         onDragStart = {
@@ -335,24 +325,7 @@ fun Wide16x9ViewfinderCard(
                         },
                     )
                 },
-            contentAlignment = Alignment.Center,
-        ) {
-            AndroidView(
-                factory = {
-                    (previewView.parent as? ViewGroup)?.removeView(previewView)
-                    previewView
-                },
-                onRelease = { view ->
-                    (view.parent as? ViewGroup)?.removeView(view)
-                },
-                modifier = Modifier
-                    .requiredWidth(viewportWidthDp)
-                    .requiredHeight(portraitHeightDp)
-                    .graphicsLayer {
-                        this.translationY = translationY
-                    },
-            )
-        }
+        )
 
         // Clipped 16:9 Rule-of-Thirds + broadcast corner brackets
         FramingGridOverlay(

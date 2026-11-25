@@ -55,10 +55,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -86,17 +88,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -105,6 +116,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.capture.AspectCropMath
 import com.example.capture.HardwareShutterBus
 import com.example.data.model.ScriptMetricsCalculator
 import com.example.data.preferences.RecordingAspectMode
@@ -124,6 +136,7 @@ import com.example.ui.viewmodel.StudioCaptureCommand
 import com.example.ui.viewmodel.StudioPhase
 import com.example.ui.viewmodel.StudioViewModel
 import java.io.File
+import kotlin.math.roundToInt
 
 @Composable
 fun TeleprompterStudioScreen(
@@ -583,10 +596,38 @@ fun TeleprompterStudioScreen(
         !recordingPhase.isScrollPaused
     val elapsedSeconds = recordingPhase?.elapsedSeconds ?: 0L
     val isWideMode = settings.recordingAspectMode == RecordingAspectMode.WIDE_16_9
+    val density = LocalDensity.current
+    var studioRootTopLeft by remember { mutableStateOf(Offset.Zero) }
+    var wideSlotBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
+
+    val wideSlotRect = wideSlotBoundsInRoot?.takeIf { it.width > 1f && it.height > 1f }
+    val wideSlotLeftPx = wideSlotRect?.let { it.left - studioRootTopLeft.x } ?: 0f
+    val wideSlotTopPx = wideSlotRect?.let { it.top - studioRootTopLeft.y } ?: 0f
+    val wideSlotWidthPx = wideSlotRect?.width ?: 0f
+    val wideSlotHeightPx = wideSlotRect?.height ?: 0f
+    val wideSlotWidthDp = with(density) { wideSlotWidthPx.toDp() }
+    val wideSlotHeightDp = with(density) { wideSlotHeightPx.toDp() }
+    val widePortraitHeightDp = wideSlotWidthDp * AspectCropMath.PORTRAIT_SENSOR_HEIGHT_OVER_WIDTH
+    val widePreviewTranslationY = if (isWideMode && wideSlotRect != null) {
+        AspectCropMath.previewTranslationYPx(
+            viewportWidthPx = wideSlotWidthPx,
+            viewportHeightPx = wideSlotHeightPx,
+            offsetY = settings.wideCropOffsetY,
+        )
+    } else {
+        0f
+    }
+
+    LaunchedEffect(isWideMode, wideSlotRect) {
+        previewView.requestLayout()
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onGloballyPositioned { coords ->
+                studioRootTopLeft = coords.positionInRoot()
+            }
             .background(if (isWideMode) Color(0xFF07080B) else Color.Black)
             .pointerInput(isRecording, showQuickDrawer) {
                 detectTapGestures(
@@ -601,19 +642,54 @@ fun TeleprompterStudioScreen(
             }
             .testTag("teleprompter_studio_screen"),
     ) {
-        // Layer 1 & 2 (Classic Vertical 9:16 Mode): Full-bleed CameraX Preview + 9:16 Grid
-        if (!isWideMode) {
+        // Layer 1: Single permanently mounted CameraX PreviewView.
+        // Never detached or reparented when toggling 9:16 <-> 16:9 so TextureView's SurfaceTexture
+        // stays continuously live with zero blank frames.
+        Box(
+            modifier = when {
+                isWideMode && wideSlotRect != null -> Modifier
+                    .offset {
+                        IntOffset(
+                            x = wideSlotLeftPx.roundToInt(),
+                            y = wideSlotTopPx.roundToInt(),
+                        )
+                    }
+                    .size(wideSlotWidthDp, wideSlotHeightDp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .clipToBounds()
+
+                isWideMode -> Modifier
+                    .fillMaxSize()
+                    .alpha(0f)
+
+                else -> Modifier.fillMaxSize()
+            },
+            contentAlignment = Alignment.Center,
+        ) {
             AndroidView(
                 factory = {
                     (previewView.parent as? ViewGroup)?.removeView(previewView)
                     previewView
                 },
-                onRelease = { view ->
-                    (view.parent as? ViewGroup)?.removeView(view)
+                modifier = if (isWideMode && wideSlotRect != null) {
+                    Modifier
+                        .requiredWidth(wideSlotWidthDp)
+                        .requiredHeight(widePortraitHeightDp)
+                        .graphicsLayer {
+                            translationY = widePreviewTranslationY
+                        }
+                } else {
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationY = 0f
+                        }
                 },
-                modifier = Modifier.fillMaxSize(),
             )
+        }
 
+        // Layer 2 (Vertical 9:16 Mode): Full-screen Framing Grid
+        if (!isWideMode) {
             FramingGridOverlay(
                 visible = settings.showFramingGrid,
                 isWideMode = false,
@@ -749,7 +825,7 @@ fun TeleprompterStudioScreen(
                 overlayHeight = if (isWideMode) 224.dp else 232.dp,
             )
 
-            // Unobtrusive One-Handed Micro-Hint Row + Options shortcut
+            // Unobtrusive One-Handed Micro-Hint Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -770,30 +846,6 @@ fun TeleprompterStudioScreen(
                         .background(Color.Black.copy(alpha = 0.36f))
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(StudioAmber.copy(alpha = 0.20f))
-                        .border(1.dp, StudioAmber.copy(alpha = 0.45f), CircleShape)
-                        .clickable { showQuickDrawer = !showQuickDrawer }
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                        .testTag("studio_options_pill"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = null,
-                        tint = StudioAmber,
-                        modifier = Modifier.size(12.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.action_options),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.92f),
-                    )
-                }
             }
 
             // Inline Error Banner if camera or recording reported an error
@@ -836,12 +888,14 @@ fun TeleprompterStudioScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Wide16x9ViewfinderCard(
-                        previewView = previewView,
                         cropOffsetY = settings.wideCropOffsetY,
                         showFramingGrid = settings.showFramingGrid,
                         canReframe = isPreview,
                         isRecording = isRecording,
                         countdownSeconds = countdownPhase?.secondsRemaining,
+                        onViewportBoundsChanged = { bounds ->
+                            wideSlotBoundsInRoot = bounds
+                        },
                         onOffsetDragLive = viewModel::updateWideCropOffsetYLive,
                         onOffsetDragCommit = viewModel::commitWideCropOffsetY,
                         onResetCenter = viewModel::resetWideCropOffset,
