@@ -18,6 +18,8 @@ jobs:
   build-and-release:
     name: Build Android APK
     runs-on: ubuntu-latest
+    env:
+      GRADLE_OPTS: -Djava.awt.headless=true
 
     steps:
       - name: Checkout repository
@@ -32,10 +34,10 @@ jobs:
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
 
-      - name: Set up Gradle (from gradle-wrapper.properties)
-        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: wrapper
+          gradle-version: '9.3.1'
 
       - name: Resolve version tag and signing mode
         id: config
@@ -70,7 +72,7 @@ jobs:
           fi
 
       - name: Run JVM unit tests
-        run: gradle :app:testDebugUnitTest --tests "com.example.ExampleUnitTest"
+        run: gradle :app:testDebugUnitTest --tests "com.example.ExampleUnitTest" --no-daemon --stacktrace
 
       - name: Build Signed Release APK
         if: steps.config.outputs.build_type == 'release'
@@ -78,14 +80,14 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          gradle :app:assembleRelease
+          gradle :app:assembleRelease --no-daemon --stacktrace
           mkdir -p release_out
           cp app/build/outputs/apk/release/app-release.apk "release_out/Eyeline-${{ steps.config.outputs.tag }}.apk"
 
       - name: Build Installable APK (default debug signing)
         if: steps.config.outputs.build_type == 'debug'
         run: |
-          gradle :app:assembleDebug
+          gradle :app:assembleDebug --no-daemon --stacktrace
           mkdir -p release_out
           cp app/build/outputs/apk/debug/app-debug.apk "release_out/Eyeline-${{ steps.config.outputs.tag }}.apk"
 
@@ -97,7 +99,7 @@ jobs:
 
       - name: Publish GitHub Release with APK
         if: github.ref_type == 'tag' || inputs.tag_name != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.config.outputs.tag }}
           name: Eyeline ${{ steps.config.outputs.tag }}
