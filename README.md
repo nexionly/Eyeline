@@ -153,14 +153,6 @@ Eyeline follows strict least-privilege Android permissions:
 
 ---
 
-## Roadmap
-
-- [ ] Automatic silence & filler-word (*"um"* / *"uh"*) cut suggestions layered onto the existing non-destructive `TimelineEditModel`
-- [ ] Optional Bluetooth remote shutter support
-- [ ] Landscape & tablet adaptive studio layout
-
----
-
 ## Contributing
 
 Contributions, bug reports, and feature ideas are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
