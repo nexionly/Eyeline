@@ -1,6 +1,6 @@
 {
   "name": "Eyeline",
-  "description": "Minimalist dark & light mode vertical teleprompter and front-camera video studio with local script library, eye-line scrolling guide, screen rim light, volume-down shutter, and instant take review.",
+  "description": "Minimalist dark & light mode vertical teleprompter and video studio for Android with local script library, lens-aligned scrolling guide, live audio level meter, screen rim light, countdown cues, volume-down shutter, metadata-tagged gallery export, and an on-device audio waveform trim & cut editor.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

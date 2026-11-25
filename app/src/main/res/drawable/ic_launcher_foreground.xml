@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/eyeline_app_icon_1795366245314"
+        android:drawable="@drawable/eyeline_store_icon_1795543861554"
         android:gravity="center" />
 </layer-list>
