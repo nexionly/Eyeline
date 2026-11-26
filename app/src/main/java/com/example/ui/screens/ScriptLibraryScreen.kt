@@ -26,10 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Description
-import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -81,7 +79,6 @@ import com.example.data.preferences.RimLightTone
 import com.example.ui.components.RimTonePill
 import com.example.ui.components.ThemeModeSegmentedRow
 import com.example.ui.theme.AppThemeMode
-import com.example.ui.theme.LocalStudioColors
 import com.example.ui.theme.RimLightCoolColor
 import com.example.ui.theme.RimLightNeutralColor
 import com.example.ui.theme.RimLightWarmColor
@@ -117,8 +114,6 @@ fun ScriptLibraryScreen(
 
     var pendingDeleteScript by remember { mutableStateOf<ScriptEntity?>(null) }
     var showStudioSettingsSheet by remember { mutableStateOf(false) }
-
-    val studioColors = LocalStudioColors.current
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -189,32 +184,15 @@ fun ScriptLibraryScreen(
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(
-                            onClick = { viewModel.cycleThemeMode() },
-                            modifier = Modifier.testTag("library_theme_toggle_button"),
-                        ) {
-                            Icon(
-                                imageVector = if (studioColors.isDark) {
-                                    Icons.Rounded.LightMode
-                                } else {
-                                    Icons.Rounded.DarkMode
-                                },
-                                contentDescription = stringResource(R.string.action_theme_toggle),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { showStudioSettingsSheet = true },
-                            modifier = Modifier.testTag("library_settings_button"),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Settings,
-                                contentDescription = stringResource(R.string.action_settings),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                    IconButton(
+                        onClick = { showStudioSettingsSheet = true },
+                        modifier = Modifier.testTag("library_settings_button"),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = stringResource(R.string.action_settings),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
 
@@ -680,7 +658,7 @@ private fun LibraryStudioSettingsSheet(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Theme Mode (Dark / Light / System)
+        // Theme Mode (OLED Black / Dark / Light)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = stringResource(R.string.adjust_theme_mode),

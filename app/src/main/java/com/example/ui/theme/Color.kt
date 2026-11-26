@@ -2,6 +2,15 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// OLED Black Studio Palette — True Pitch-Black AMOLED Darkroom
+val OledBlackBg = Color(0xFF000000)
+val OledBlackSurface = Color(0xFF0A0B0D)
+val OledBlackContainer = Color(0xFF121318)
+val OledBlackContainerHigh = Color(0xFF1A1C22)
+val OledBlackContainerHighest = Color(0xFF252830)
+val OledBlackOutline = Color(0xFF2C2F39)
+val OledBlackOutlineSubtle = Color(0xFF1E2028)
+
 // Dark Studio Palette — Precision Cinema Darkroom (Deep Charcoal & Warm Studio Amber)
 val DarkCharcoalBg = Color(0xFF111214)
 val DarkCharcoalSurface = Color(0xFF18191D)

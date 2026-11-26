@@ -86,9 +86,9 @@
     <string name="adjust_countdown_sounds">Countdown Sounds</string>
     <string name="adjust_countdown_sounds_desc">Play studio audio cues during the 3-2-1 countdown</string>
     <string name="adjust_theme_mode">Appearance</string>
+    <string name="theme_oled_black">OLED Black</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
-    <string name="theme_system">System</string>
 
     <!-- Review Screen -->
     <string name="review_title">Review Take</string>

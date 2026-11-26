@@ -1,6 +1,5 @@
 package com.example.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -14,9 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 enum class AppThemeMode {
+    OLED_BLACK,
     DARK,
     LIGHT,
-    SYSTEM,
 }
 
 @Immutable
@@ -43,6 +42,36 @@ val LocalStudioColors = staticCompositionLocalOf {
         isDark = true,
     )
 }
+
+private val EyelineOledBlackColorScheme = darkColorScheme(
+    primary = StudioAmber,
+    onPrimary = StudioAmberOnPrimary,
+    primaryContainer = StudioAmberContainerDark,
+    onPrimaryContainer = StudioAmberOnContainerDark,
+    secondary = StudioAmberBright,
+    onSecondary = StudioAmberOnPrimary,
+    secondaryContainer = OledBlackContainerHigh,
+    onSecondaryContainer = DarkOnSurface,
+    tertiary = VuGreen,
+    onTertiary = OledBlackBg,
+    background = OledBlackBg,
+    onBackground = DarkOnSurface,
+    surface = OledBlackSurface,
+    onSurface = DarkOnSurface,
+    surfaceVariant = OledBlackContainer,
+    onSurfaceVariant = DarkOnSurfaceVariant,
+    surfaceContainerLowest = OledBlackBg,
+    surfaceContainerLow = OledBlackSurface,
+    surfaceContainer = OledBlackContainer,
+    surfaceContainerHigh = OledBlackContainerHigh,
+    surfaceContainerHighest = OledBlackContainerHighest,
+    outline = OledBlackOutline,
+    outlineVariant = OledBlackOutlineSubtle,
+    error = TallyCrimson,
+    onError = Color.White,
+    errorContainer = TallyCrimsonDarkContainer,
+    onErrorContainer = Color(0xFFFFB4B6),
+)
 
 private val EyelineDarkColorScheme = darkColorScheme(
     primary = StudioAmber,
@@ -116,13 +145,13 @@ fun EyelineTheme(
     themeMode: AppThemeMode = AppThemeMode.DARK,
     content: @Composable () -> Unit,
 ) {
-    val useDark = when (themeMode) {
-        AppThemeMode.DARK -> true
-        AppThemeMode.LIGHT -> false
-        AppThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
+    val useDark = themeMode != AppThemeMode.LIGHT
 
-    val colorScheme = if (useDark) EyelineDarkColorScheme else EyelineLightColorScheme
+    val colorScheme = when (themeMode) {
+        AppThemeMode.OLED_BLACK -> EyelineOledBlackColorScheme
+        AppThemeMode.DARK -> EyelineDarkColorScheme
+        AppThemeMode.LIGHT -> EyelineLightColorScheme
+    }
     val extendedColors = StudioExtendedColors(
         tallyRed = TallyCrimson,
         vuGreen = VuGreen,
@@ -130,7 +159,11 @@ fun EyelineTheme(
         vuRed = VuRed,
         eyeLineHighlight = StudioAmber.copy(alpha = 0.16f),
         eyeLineBorder = StudioAmber.copy(alpha = 0.65f),
-        subtleDivider = if (useDark) DarkCharcoalOutlineSubtle else LightIvoryOutlineSubtle,
+        subtleDivider = when (themeMode) {
+            AppThemeMode.OLED_BLACK -> OledBlackOutlineSubtle
+            AppThemeMode.DARK -> DarkCharcoalOutlineSubtle
+            AppThemeMode.LIGHT -> LightIvoryOutlineSubtle
+        },
         isDark = useDark,
     )
 

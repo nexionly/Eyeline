@@ -303,7 +303,7 @@ fun QuickAdjustDrawer(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // 6. Appearance (Dark / Light / System)
+        // 6. Appearance (OLED Black / Dark / Light)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = stringResource(R.string.adjust_theme_mode),
@@ -431,9 +431,9 @@ fun ThemeModeSegmentedRow(
     modifier: Modifier = Modifier,
 ) {
     val options = listOf(
+        AppThemeMode.OLED_BLACK to stringResource(R.string.theme_oled_black),
         AppThemeMode.DARK to stringResource(R.string.theme_dark),
         AppThemeMode.LIGHT to stringResource(R.string.theme_light),
-        AppThemeMode.SYSTEM to stringResource(R.string.theme_system),
     )
 
     Row(
@@ -454,13 +454,14 @@ fun ThemeModeSegmentedRow(
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
                     )
                     .clickable { onSelect(mode) }
-                    .padding(vertical = 10.dp)
+                    .padding(horizontal = 4.dp, vertical = 10.dp)
                     .testTag("theme_option_${mode.name.lowercase()}"),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.onPrimary
                     } else {

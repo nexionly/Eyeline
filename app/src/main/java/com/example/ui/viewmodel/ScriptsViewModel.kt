@@ -173,15 +173,6 @@ class ScriptsViewModel(
         viewModelScope.launch { preferences.setThemeMode(mode) }
     }
 
-    fun cycleThemeMode() {
-        val next = when (settings.value.themeMode) {
-            AppThemeMode.DARK -> AppThemeMode.LIGHT
-            AppThemeMode.LIGHT -> AppThemeMode.DARK
-            AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
-        }
-        setThemeMode(next)
-    }
-
     fun setRimLightEnabled(enabled: Boolean) {
         viewModelScope.launch { preferences.setRimLightEnabled(enabled) }
     }

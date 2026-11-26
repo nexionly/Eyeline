@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -57,11 +56,9 @@ class MainActivity : ComponentActivity() {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val isStudioRoute = backStackEntry?.destination?.route?.contains("StudioRoute") == true
 
-            val isSystemDark = isSystemInDarkTheme()
             val useDarkChrome = isStudioRoute || when (settings.themeMode) {
-                AppThemeMode.DARK -> true
+                AppThemeMode.OLED_BLACK, AppThemeMode.DARK -> true
                 AppThemeMode.LIGHT -> false
-                AppThemeMode.SYSTEM -> isSystemDark
             }
 
             SystemBarsEffect(useDarkChrome = useDarkChrome)
