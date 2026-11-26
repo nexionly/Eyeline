@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.eyeline.vkqrmp"
     minSdk = 24
     targetSdk = 36
-    versionCode = 8
-    versionName = "8.0"
+    versionCode = 10
+    versionName = "10.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

@@ -89,6 +89,10 @@
     <string name="theme_oled_black">OLED Black</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_light">Light</string>
+    <string name="settings_support_kofi_title">Support on Ko-fi</string>
+    <string name="settings_support_kofi_desc">Leave an optional tip to help support Eyeline</string>
+    <string name="settings_support_kofi_cd">Open Ko-fi support page in browser</string>
+    <string name="settings_support_kofi_browser_error">No web browser available to open Ko-fi.</string>
 
     <!-- Review Screen -->
     <string name="review_title">Review Take</string>
